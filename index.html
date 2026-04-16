@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>薪資資料串接 API 說明文件</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            scroll-behavior: smooth;
+        }
+        pre {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.875rem;
+            line-height: 1.7;
+        }
+        .sidebar-link.active {
+            background-color: #eff6ff;
+            color: #2563eb;
+            border-right: 4px solid #2563eb;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background-color: #f8fafc;
+            text-align: left;
+            font-weight: 600;
+            color: #475569;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        td, th {
+            padding: 1rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .endpoint-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+        .method-get { background-color: #dcfce7; color: #166534; }
+        
+        /* 自定義捲軸 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        @media (max-width: 1024px) {
+            #sidebar { transform: translateX(-100%); transition: transform 0.3s ease; }
+            #sidebar.open { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <!-- 行動裝置導覽列 -->
+    <header class="lg:hidden bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-50">
+        <span class="font-bold text-blue-600">API Documentation</span>
+        <button id="menuBtn" class="p-2 text-slate-600 focus:outline-none">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+            </svg>
+        </button>
+    </header>
+
+    <div class="flex">
+        <!-- 側邊導覽欄 -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-white border-r z-40 lg:sticky lg:h-screen">
+            <div class="p-6">
+                <h1 class="text-xl font-bold text-slate-900 mb-1">EasyCounting</h1>
+                <p class="text-xs text-slate-500 uppercase tracking-widest font-semibold">API Documentation</p>
+            </div>
+            <nav class="mt-4 space-y-1">
+                <a href="#basic" class="sidebar-link block px-6 py-3 text-sm font-medium hover:bg-slate-50 transition-colors">1. 基本資訊</a>
+                <a href="#auth" class="sidebar-link block px-6 py-3 text-sm font-medium hover:bg-slate-50 transition-colors">2. 認證方式</a>
+                <a href="#params" class="sidebar-link block px-6 py-3 text-sm font-medium hover:bg-slate-50 transition-colors">3. 請求參數</a>
+                <a href="#response" class="sidebar-link block px-6 py-3 text-sm font-medium hover:bg-slate-50 transition-colors">4. 回傳欄位說明</a>
+                <a href="#example" class="sidebar-link block px-6 py-3 text-sm font-medium hover:bg-slate-50 transition-colors">5. 範例回應</a>
+                <a href="#error" class="sidebar-link block px-6 py-3 text-sm font-medium hover:bg-slate-50 transition-colors">6. 錯誤代碼</a>
+            </nav>
+        </aside>
+
+        <!-- 主內容區 -->
+        <main class="flex-1 max-w-5xl mx-auto px-6 py-12 lg:px-12">
+            
+            <section id="introduction" class="mb-16">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">薪資資料串接 API</h2>
+                <p class="text-lg text-slate-600 leading-relaxed">
+                    本文件說明如何透過 API 取得各校區/分部之薪資統計資料，以便與會計系統或 ERP 系統進行帳務同步。
+                </p>
+            </section>
+
+            <!-- 1. 基本資訊 -->
+            <section id="basic" class="mb-16 scroll-mt-20">
+                <h3 class="text-2xl font-bold text-slate-900 mb-6 flex items-center">
+                    <span class="bg-blue-600 text-white w-8 h-8 rounded-lg flex items-center justify-center text-sm mr-3 shadow-sm">1</span>
+                    基本資訊
+                </h3>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <p class="text-sm text-slate-500 mb-1 font-semibold uppercase">傳輸協議</p>
+                                <p class="text-slate-900">HTTPS</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-500 mb-1 font-semibold uppercase">資料格式</p>
+                                <p class="text-slate-900">JSON</p>
+                            </div>
+                            <div class="md:col-span-2">
+                                <p class="text-sm text-slate-500 mb-2 font-semibold uppercase">介面路徑 & 方法</p>
+                                <div class="flex items-center space-x-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                    <span class="endpoint-badge method-get">GET</span>
+                                    <code class="text-blue-600 font-mono text-sm">/api/v1/salary/records</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 認證方式 -->
+            <section id="auth" class="mb-16 scroll-mt-20">
+                <h3 class="text-2xl font-bold text-slate-900 mb-6 flex items-center">
+                    <span class="bg-blue-600 text-white w-8 h-8 rounded-lg flex items-center justify-center text-sm mr-3 shadow-sm">2</span>
+                    認證方式 (Authentication)
+                </h3>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+                    <div class="overflow-x-auto">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Header 名稱</th>
+                                    <th>內容</th>
+                                    <th>說明</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="font-mono text-sm">Authorization</td>
+                                    <td class="font-mono text-sm text-blue-600">Bearer {your_api_token}</td>
+                                    <td class="text-slate-600">請替換為您的實際 Token</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-mono text-sm">Content-Type</td>
+                                    <td class="font-mono text-sm text-slate-900">application/json</td>
+                                    <td class="text-slate-600">指定資料格式</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3 text-sm text-amber-700">
+                            <p>請妥善保管您的 API Key，切勿在客戶端前端程式碼中明文寫入。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. 請求參數 -->
+            <section id="params" class="mb-16 scroll-mt-20">
+                <h3 class="text-2xl font-bold text-slate-900 mb-6 flex items-center">
+                    <span class="bg-blue-600 text-white w-8 h-8 rounded-lg flex items-center justify-center text-sm mr-3 shadow-sm">3</span>
+                    請求參數 (Request Parameters)
+                </h3>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>參數名稱</th>
+                                    <th>類型</th>
+                                    <th>必填</th>
+                                    <th>範例</th>
+                                    <th>說明</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="font-semibold">month</td>
+                                    <td class="text-slate-500 italic">string</td>
+                                    <td><span class="text-rose-500 font-medium">是</span></td>
+                                    <td class="font-mono text-sm text-blue-600">2026-04</td>
+                                    <td class="text-slate-600">欲查詢的月份 (格式：YYYY-MM)</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-semibold">bunit_id</td>
+                                    <td class="text-slate-500 italic">string</td>
+                                    <td><span class="text-slate-400">否</span></td>
+                                    <td class="font-mono text-sm text-blue-600">A01</td>
+                                    <td class="text-slate-600">指定校區編號，不填則回傳所有權限內校區</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. 回傳欄位說明 -->
+            <section id="response" class="mb-16 scroll-mt-20">
+                <h3 class="text-2xl font-bold text-slate-900 mb-6 flex items-center">
+                    <span class="bg-blue-600 text-white w-8 h-8 rounded-lg flex items-center justify-center text-sm mr-3 shadow-sm">4</span>
+                    回傳欄位說明 (Response Fields)
+                </h3>
+                
+                <div class="space-y-8">
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">根節點物件</h4>
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>欄位名稱</th>
+                                        <th>類型</th>
+                                        <th>說明</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="font-semibold">status</td>
+                                        <td class="text-slate-500 italic">string</td>
+                                        <td>執行狀態，成功為 <code class="bg-slate-100 px-1 rounded text-emerald-600">success</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold">month</td>
+                                        <td class="text-slate-500 italic">string</td>
+                                        <td>本次查詢的資料月份</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold">data</td>
+                                        <td class="text-slate-500 italic">array</td>
+                                        <td>各校區資料陣列</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">data 陣列元素 (校區資訊)</h4>
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>欄位名稱</th>
+                                        <th>類型</th>
+                                        <th>說明</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="font-semibold">bunitName</td>
+                                        <td class="text-slate-500 italic">string</td>
+                                        <td>校區/分部名稱</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold">records</td>
+                                        <td class="text-slate-500 italic">array</td>
+                                        <td>該校區下的薪資項目明細</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">records 陣列元素 (薪資明細)</h4>
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>欄位名稱</th>
+                                        <th>類型</th>
+                                        <th>說明</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="font-semibold">salaryName</td>
+                                        <td class="text-slate-500 italic">string</td>
+                                        <td>薪資類別名稱 (如：教職員薪資條、行政人員薪資條)</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold">syncAcct</td>
+                                        <td class="text-slate-500 italic">string</td>
+                                        <td>對應會計科目編號</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold">payable</td>
+                                        <td class="text-slate-500 italic">number</td>
+                                        <td>應付薪資金額</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold">syncTime</td>
+                                        <td class="text-slate-500 italic">string | null</td>
+                                        <td>最後一次同步到外部系統的時間。若為 <code class="bg-slate-100 px-1 rounded text-slate-500">null</code> 則表示尚未同步過</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. 範例回應 -->
+            <section id="example" class="mb-16 scroll-mt-20">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-2xl font-bold text-slate-900 flex items-center">
+                        <span class="bg-blue-600 text-white w-8 h-8 rounded-lg flex items-center justify-center text-sm mr-3 shadow-sm">5</span>
+                        範例回應 (Response Example)
+                    </h3>
+                    <button id="copyBtn" class="text-xs font-semibold bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded transition-colors flex items-center">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                        複製代碼
+                    </button>
+                </div>
+                <div id="copySuccess" class="hidden text-xs text-emerald-600 mb-2 font-semibold">✓ 已複製到剪貼簿</div>
+                <pre id="jsonExample">
+{
+  "status": "success",
+  "month": "2026-04",
+  "data": [
+    {
+      "bunitName": "台北校",
+      "records": [
+        {
+          "salaryName": "教職員薪資條",
+          "syncAcct": "5101",
+          "payable": 320000,
+          "syncTime": "2026/04/15 04:39"
+        },
+        {
+          "salaryName": "行政人員薪資條",
+          "syncAcct": "5102",
+          "payable": 185000,
+          "syncTime": "2026/04/15 04:39"
+        }
+      ]
+    },
+    {
+      "bunitName": "新竹校",
+      "records": [
+        {
+          "salaryName": "教職員薪資條",
+          "syncAcct": "5101",
+          "payable": 210000,
+          "syncTime": "2026/04/14 09:20"
+        },
+        {
+          "salaryName": "行政人員薪資條",
+          "syncAcct": "5103",
+          "payable": 95000,
+          "syncTime": null
+        }
+      ]
+    },
+    {
+      "bunitName": "高雄校",
+      "records": [
+        {
+          "salaryName": "教職員薪資條",
+          "syncAcct": "5101",
+          "payable": 275000,
+          "syncTime": "2026/04/15 04:39"
+        }
+      ]
+    }
+  ]
+}</pre>
+            </section>
+
+            <!-- 6. 錯誤代碼 -->
+            <section id="error" class="mb-16 scroll-mt-20">
+                <h3 class="text-2xl font-bold text-slate-900 mb-6 flex items-center">
+                    <span class="bg-blue-600 text-white w-8 h-8 rounded-lg flex items-center justify-center text-sm mr-3 shadow-sm">6</span>
+                    錯誤代碼 (Error Codes)
+                </h3>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>HTTP 狀態碼</th>
+                                <th>錯誤訊息 (message)</th>
+                                <th>說明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="font-mono text-rose-600">400</td>
+                                <td class="font-mono text-sm">INVALID_MONTH_FORMAT</td>
+                                <td class="text-slate-600">月份格式錯誤</td>
+                            </tr>
+                            <tr>
+                                <td class="font-mono text-rose-600">401</td>
+                                <td class="font-mono text-sm">UNAUTHORIZED</td>
+                                <td class="text-slate-600">API Token 無效或已過期</td>
+                            </tr>
+                            <tr>
+                                <td class="font-mono text-rose-600">404</td>
+                                <td class="font-mono text-sm">DATA_NOT_FOUND</td>
+                                <td class="text-slate-600">該月份查無薪資資料</td>
+                            </tr>
+                            <tr>
+                                <td class="font-mono text-rose-600">500</td>
+                                <td class="font-mono text-sm">INTERNAL_SERVER_ERROR</td>
+                                <td class="text-slate-600">系統內部錯誤</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <footer class="mt-20 py-8 border-t text-center text-slate-400 text-sm">
+                &copy; 2026 EasyCounting. All rights reserved.
+            </footer>
+        </main>
+    </div>
+
+    <!-- 隱藏的 Textarea 用於複製 -->
+    <textarea id="copyHelper" class="fixed -top-10 opacity-0"></textarea>
+
+    <script>
+        // 行動裝置選單切換
+        const menuBtn = document.getElementById('menuBtn');
+        const sidebar = document.getElementById('sidebar');
+        menuBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+        });
+
+        // 捲動監聽器 - 更新側邊欄活動狀態
+        const sections = document.querySelectorAll('section');
+        const navLinks = document.querySelectorAll('.sidebar-link');
+
+        window.addEventListener('scroll', () => {
+            let current = "";
+            sections.forEach((section) => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= sectionTop - 120) {
+                    current = section.getAttribute("id");
+                }
+            });
+
+            navLinks.forEach((link) => {
+                link.classList.remove("active");
+                if (link.getAttribute("href").includes(current)) {
+                    link.classList.add("active");
+                }
+            });
+        });
+
+        // 複製功能
+        const copyBtn = document.getElementById('copyBtn');
+        const jsonContent = document.getElementById('jsonExample');
+        const copyHelper = document.getElementById('copyHelper');
+        const copySuccess = document.getElementById('copySuccess');
+
+        copyBtn.addEventListener('click', () => {
+            copyHelper.value = jsonContent.innerText;
+            copyHelper.select();
+            document.execCommand('copy');
+            
+            copySuccess.classList.remove('hidden');
+            setTimeout(() => {
+                copySuccess.classList.add('hidden');
+            }, 2000);
+        });
+
+        // 點擊連結關閉移動版側邊欄
+        navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                sidebar.classList.remove('open');
+            });
+        });
+    </script>
+</body>
+</html>
