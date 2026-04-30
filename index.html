@@ -1,281 +1,348 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
-  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
-} from 'recharts';
-import { 
-  Users, UserPlus, UserMinus, Clock, Calendar, 
-  ChevronRight, Download, Filter, TrendingUp, AlertCircle
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教職員人事考勤統計儀表板</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', 'Microsoft JhengHei', sans-serif; }
+        .chart-container { position: relative; width: 100%; height: 320px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .table-fixed-height { max-height: 280px; overflow-y: auto; }
+        .table-fixed-height-lg { max-height: 350px; overflow-y: auto; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen p-4 md:p-6">
 
-const App = () => {
-  // 模擬數據
-  const [data, setData] = useState({
-    totalStaff: 120,
-    newHires: 2,
-    resignations: 1,
-    onLeave: 8,
-    overtime: 5,
-    lastUpdate: "2024-05-20"
-  });
-
-  // 考勤類別分佈
-  const attendanceData = [
-    { name: '正常出勤', value: 104, color: '#10b981' },
-    { name: '請假中', value: 8, color: '#f59e0b' },
-    { name: '加班中', value: 5, color: '#8b5cf6' },
-    { name: '待報到/離職', value: 3, color: '#6b7280' },
-  ];
-
-  // 七日趨勢模擬
-  const trendData = [
-    { date: '05/14', 請假: 4, 加班: 2, 在職: 118 },
-    { date: '05/15', 請假: 6, 加班: 3, 在職: 118 },
-    { date: '05/16', 請假: 5, 加班: 8, 在職: 119 },
-    { date: '05/17', 請假: 10, 加班: 4, 在職: 119 },
-    { date: '05/18', 請假: 3, 加班: 2, 在職: 119 },
-    { date: '05/19', 請假: 2, 加班: 1, 在職: 120 },
-    { date: '05/20', 請假: 8, 加班: 5, 在職: 120 },
-  ];
-
-  // 請假類別細分
-  const leaveDetails = [
-    { type: '事假', count: 2 },
-    { type: '病假', count: 3 },
-    { type: '公假', count: 2 },
-    { type: '特休', count: 1 },
-  ];
-
-  const COLORS = ['#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
-
-  return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
-      {/* Header */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+    <!-- Header -->
+    <header class="max-w-[1700px] mx-auto flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Users className="text-blue-600" />
-            教職員人事與考勤每日統計
-          </h1>
-          <p className="text-slate-500">數據更新時間：{data.lastUpdate} 09:30 AM</p>
+            <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <i data-lucide="layout-dashboard" class="text-blue-600"></i>
+                教職員人事考勤每日管理系統
+            </h1>
+            <p class="text-slate-500 text-sm">數據更新時間：2024-05-20 09:30 AM</p>
         </div>
-        <div className="flex gap-2">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
-            <Filter size={18} />
-            篩選條件
-          </button>
-          <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-            <Download size={18} />
-            匯出報表
-          </button>
+        <div class="flex gap-2">
+            <button class="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm text-sm font-medium">
+                <i data-lucide="calendar" class="w-4 h-4"></i> 2024-05-20
+            </button>
+            <button class="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium">
+                <i data-lucide="printer" class="w-4 h-4"></i> 匯出報表
+            </button>
         </div>
-      </header>
+    </header>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        <StatCard 
-          title="在職總人數" 
-          value={data.totalStaff} 
-          icon={<Users className="text-blue-600" />} 
-          trend="+2 從上月"
-          color="bg-blue-50"
-        />
-        <StatCard 
-          title="當日新進" 
-          value={data.newHires} 
-          icon={<UserPlus className="text-emerald-600" />} 
-          trend="本月累計: 5"
-          color="bg-emerald-50"
-        />
-        <StatCard 
-          title="當日離職" 
-          value={data.resignations} 
-          icon={<UserMinus className="text-rose-600" />} 
-          trend="本月累計: 2"
-          color="bg-rose-50"
-        />
-        <StatCard 
-          title="當日請假" 
-          value={data.onLeave} 
-          icon={<Calendar className="text-amber-600" />} 
-          trend="缺勤率: 6.7%"
-          color="bg-amber-50"
-        />
-        <StatCard 
-          title="當日加班" 
-          value={data.overtime} 
-          icon={<Clock className="text-purple-600" />} 
-          trend="昨日: 3 人"
-          color="bg-purple-50"
-        />
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <main class="max-w-[1700px] mx-auto space-y-6">
         
-        {/* Main Attendance Chart */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold">近七日考勤趨勢</h2>
-            <div className="flex gap-4 text-sm text-slate-500">
-              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-amber-400 rounded-full"></span>請假</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-purple-500 rounded-full"></span>加班</span>
+        <!-- 1. 統計欄位放在一行 (One Row) -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between text-slate-500 text-xs font-bold uppercase mb-2"><span>在職總人數</span><i data-lucide="users" class="w-4 h-4 opacity-50"></i></div>
+                <div class="text-2xl font-bold">120</div>
             </div>
-          </div>
-          <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData}>
-                <defs>
-                  <linearGradient id="colorLeave" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorOver" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                />
-                <Area type="monotone" dataKey="請假" stroke="#f59e0b" fillOpacity={1} fill="url(#colorLeave)" strokeWidth={3} />
-                <Area type="monotone" dataKey="加班" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorOver)" strokeWidth={3} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-emerald-500">
+                <div class="flex justify-between text-slate-500 text-xs font-bold uppercase mb-2"><span>當日新進</span><i data-lucide="user-plus" class="w-4 h-4 text-emerald-500"></i></div>
+                <div class="text-2xl font-bold text-emerald-600">3</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-rose-400">
+                <div class="flex justify-between text-slate-500 text-xs font-bold uppercase mb-2"><span>當日離職/留停</span><i data-lucide="user-minus" class="w-4 h-4 text-rose-500"></i></div>
+                <div class="text-2xl font-bold text-rose-600">2</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-indigo-400">
+                <div class="flex justify-between text-slate-500 text-xs font-bold uppercase mb-2"><span>當日請假</span><i data-lucide="coffee" class="w-4 h-4 text-indigo-500"></i></div>
+                <div class="text-2xl font-bold text-indigo-600">12</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-purple-400">
+                <div class="flex justify-between text-slate-500 text-xs font-bold uppercase mb-2"><span>當日加班</span><i data-lucide="zap" class="w-4 h-4 text-purple-500"></i></div>
+                <div class="text-2xl font-bold text-purple-600">8</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-amber-500">
+                <div class="flex justify-between text-slate-500 text-xs font-bold uppercase mb-2"><span>考勤異常</span><i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500"></i></div>
+                <div class="text-2xl font-bold text-amber-600">15</div>
+            </div>
         </div>
 
-        {/* Status Distribution */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h2 className="text-lg font-semibold mb-6">今日狀態分佈</h2>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={attendanceData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {attendanceData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 space-y-3">
-            {attendanceData.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{backgroundColor: item.color}}></div>
-                  <span className="text-slate-600">{item.name}</span>
+        <!-- 2 & 3. Top Grid (Left: Exception Tables, Right: Chart) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Left: Exception Lists (col-span-7) -->
+            <div class="lg:col-span-7 space-y-6">
+                <!-- 未打卡名單 -->
+                <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-4 bg-rose-50 border-b border-rose-100 flex items-center justify-between">
+                        <h3 class="font-bold text-rose-800 flex items-center gap-2"><i data-lucide="fingerprint"></i> 當日異常：未打卡名單</h3>
+                        <span class="text-xs font-bold text-rose-600">共 6 筆</span>
+                    </div>
+                    <div class="table-fixed-height custom-scrollbar">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-50 sticky top-0">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold text-slate-500">姓名/職稱</th>
+                                    <th class="px-4 py-3 font-semibold text-slate-500">班表時間</th>
+                                    <th class="px-4 py-3 font-semibold text-slate-500">上班打卡</th>
+                                    <th class="px-4 py-3 font-semibold text-slate-500">下班打卡</th>
+                                    <th class="px-4 py-3 font-semibold text-rose-600">異常說明</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr><td class="px-4 py-3 font-medium">陳正雄 <span class="text-xs text-slate-400 font-normal">資財組長</span></td><td class="px-4 py-3">08:00-17:00</td><td class="px-4 py-3 text-rose-500 font-bold italic">未打卡</td><td class="px-4 py-3">17:05</td><td class="px-4 py-3 text-xs text-rose-600">上班缺卡</td></tr>
+                                <tr><td class="px-4 py-3 font-medium">林美玲 <span class="text-xs text-slate-400 font-normal">國文老師</span></td><td class="px-4 py-3">08:30-17:30</td><td class="px-4 py-3">08:25</td><td class="px-4 py-3 text-rose-500 font-bold italic">未打卡</td><td class="px-4 py-3 text-xs text-rose-600">下班缺卡</td></tr>
+                                <tr><td class="px-4 py-3 font-medium">張智宏 <span class="text-xs text-slate-400 font-normal">體育老師</span></td><td class="px-4 py-3">08:00-17:00</td><td class="px-4 py-3 text-rose-500 font-bold italic">未打卡</td><td class="px-4 py-3 text-rose-500 font-bold italic">未打卡</td><td class="px-4 py-3 text-xs text-rose-600">全日缺卡</td></tr>
+                                <tr><td class="px-4 py-3 font-medium">李世民 <span class="text-xs text-slate-400 font-normal">教務組員</span></td><td class="px-4 py-3">08:00-17:00</td><td class="px-4 py-3 text-rose-500 font-bold italic">未打卡</td><td class="px-4 py-3">17:10</td><td class="px-4 py-3 text-xs text-rose-600">上班缺卡</td></tr>
+                                <tr><td class="px-4 py-3 font-medium">周曉蕾 <span class="text-xs text-slate-400 font-normal">英文老師</span></td><td class="px-4 py-3">08:30-17:30</td><td class="px-4 py-3">08:35</td><td class="px-4 py-3 text-rose-500 font-bold italic">未打卡</td><td class="px-4 py-3 text-xs text-rose-600">下班缺卡</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- 遲到/早退名單 -->
+                <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-4 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
+                        <h3 class="font-bold text-amber-800 flex items-center gap-2"><i data-lucide="timer"></i> 當日異常：遲到/早退名單</h3>
+                        <span class="text-xs font-bold text-amber-600">共 9 筆</span>
+                    </div>
+                    <div class="table-fixed-height custom-scrollbar">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-50 sticky top-0">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold text-slate-500">姓名/職稱</th>
+                                    <th class="px-4 py-3 font-semibold text-slate-500">班表時間</th>
+                                    <th class="px-4 py-3 font-semibold text-slate-500">上班打卡</th>
+                                    <th class="px-4 py-3 font-semibold text-slate-500">下班打卡</th>
+                                    <th class="px-4 py-3 font-semibold text-amber-700">差異說明</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr><td class="px-4 py-3 font-medium">王大同 <span class="block text-xs text-slate-400 font-normal">學務主任</span></td><td class="px-4 py-3">08:00-17:00</td><td class="px-4 py-3 text-amber-600 font-bold">08:15</td><td class="px-4 py-3">17:02</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs">遲到 15m</span></td></tr>
+                                <tr><td class="px-4 py-3 font-medium">李建興 <span class="block text-xs text-slate-400 font-normal">行政助理</span></td><td class="px-4 py-3">08:00-17:00</td><td class="px-4 py-3 text-amber-600 font-bold">08:45</td><td class="px-4 py-3">17:15</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs">遲到 45m</span></td></tr>
+                                <tr><td class="px-4 py-3 font-medium">孫權 <span class="block text-xs text-slate-400 font-normal">歷史科長</span></td><td class="px-4 py-3">08:30-17:30</td><td class="px-4 py-3 text-slate-500">08:28</td><td class="px-4 py-3 text-amber-600 font-bold">17:10</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs">早退 20m</span></td></tr>
+                                <tr><td class="px-4 py-3 font-medium">魏延 <span class="block text-xs text-slate-400 font-normal">體育老師</span></td><td class="px-4 py-3">08:00-17:00</td><td class="px-4 py-3 text-amber-600 font-bold">08:12</td><td class="px-4 py-3">17:05</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs">遲到 12m</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right: Absence Chart (col-span-5) -->
+            <div class="lg:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-semibold mb-2 flex items-center gap-2">
+                    <i data-lucide="pie-chart" class="text-slate-400"></i> 今日缺勤統計分佈
+                </h2>
+                <p class="text-slate-400 text-xs mb-6 italic">排除正常出勤人員，專注缺勤原因分析</p>
+                <div class="chart-container">
+                    <canvas id="absenceChart"></canvas>
                 </div>
-                <span className="font-semibold">{item.value} 人</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Detailed Breakdown */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h2 className="text-lg font-semibold mb-4">請假類別細項</h2>
-          <div className="space-y-4">
-            {leaveDetails.map((leave, i) => (
-              <div key={i}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-600">{leave.type}</span>
-                  <span className="font-medium">{leave.count} 人</span>
+                <div class="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-2" id="chartLegend">
+                    <!-- JS populated -->
                 </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-amber-400 h-full rounded-full" 
-                    style={{width: `${(leave.count / data.onLeave) * 100}%`}}
-                  ></div>
+            </div>
+        </div>
+
+        <!-- 4. Middle Grid (Left: Leave, Middle: Overtime, Right: Comp Change) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 當日請假名單 -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between">
+                    <h3 class="font-bold text-indigo-800 flex items-center gap-2"><i data-lucide="coffee"></i> 當日請假名單</h3>
+                    <span class="text-[10px] font-bold text-indigo-600 uppercase">共 12 筆</span>
                 </div>
-              </div>
-            ))}
-          </div>
+                <div class="table-fixed-height custom-scrollbar">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 sticky top-0">
+                            <tr>
+                                <th class="px-3 py-2 font-semibold text-slate-500">姓名/職稱</th>
+                                <th class="px-3 py-2 font-semibold text-slate-500">假別</th>
+                                <th class="px-3 py-2 font-semibold text-slate-500">狀態</th>
+                                <th class="px-3 py-2 font-semibold text-slate-500">說明</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr class="bg-rose-50/20"><td class="px-3 py-3 font-medium">張小明 <span class="block text-[10px] text-slate-400">老師</span></td><td class="px-3 py-3">事假</td><td class="px-3 py-3 text-rose-600 font-bold">未覆核</td><td class="px-3 py-3">家事處理</td></tr>
+                            <tr><td class="px-3 py-3 font-medium">李建國 <span class="block text-[10px] text-slate-400">組長</span></td><td class="px-3 py-3">病假</td><td class="px-3 py-3 text-amber-600">覆核中</td><td class="px-3 py-3 text-indigo-600">連續 3 天 (05/20-22)</td></tr>
+                            <tr><td class="px-3 py-3 font-medium">周美麗 <span class="block text-[10px] text-slate-400">主任</span></td><td class="px-3 py-3">年假</td><td class="px-3 py-3 text-emerald-600">已覆核</td><td class="px-3 py-3">個人出國</td></tr>
+                            <tr><td class="px-3 py-3 font-medium">吳三桂 <span class="block text-[10px] text-slate-400">職員</span></td><td class="px-3 py-3">公假</td><td class="px-3 py-3 text-emerald-600">已覆核</td><td class="px-3 py-3">研習課程</td></tr>
+                            <tr><td class="px-3 py-3 font-medium">韓信 <span class="block text-[10px] text-slate-400">老師</span></td><td class="px-3 py-3">病假</td><td class="px-3 py-3 text-emerald-600">已覆核</td><td class="px-3 py-3">感冒就醫</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 當日加班申請名單 -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
+                    <h3 class="font-bold text-purple-800 flex items-center gap-2"><i data-lucide="zap"></i> 當日加班申請名單</h3>
+                    <span class="text-[10px] font-bold text-purple-600 uppercase">共 8 筆</span>
+                </div>
+                <div class="table-fixed-height custom-scrollbar">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 sticky top-0">
+                            <tr>
+                                <th class="px-3 py-2 font-semibold text-slate-500">姓名/職稱</th>
+                                <th class="px-3 py-2 font-semibold text-slate-500">時間/時數</th>
+                                <th class="px-3 py-2 font-semibold text-slate-500">狀態</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr><td class="px-3 py-3 font-medium">馬文才 <span class="block text-[10px] text-slate-400">總務處</span></td><td class="px-3 py-3">17:00-19:00 (2h)</td><td class="px-3 py-3 text-amber-600 font-bold">覆核中</td></tr>
+                            <tr><td class="px-3 py-3 font-medium">范蠡 <span class="block text-[10px] text-slate-400">會計室</span></td><td class="px-3 py-3">18:00-21:00 (3h)</td><td class="px-3 py-3 text-emerald-600">已覆核</td></tr>
+                            <tr><td class="px-3 py-3 font-medium">諸葛亮 <span class="block text-[10px] text-slate-400">教務處</span></td><td class="px-3 py-3">17:30-20:30 (3h)</td><td class="px-3 py-3 text-emerald-600">已覆核</td></tr>
+                            <tr><td class="px-3 py-3 font-medium">魯肅 <span class="block text-[10px] text-slate-400">輔導室</span></td><td class="px-3 py-3">17:00-18:30 (1.5h)</td><td class="px-3 py-3 text-emerald-600">已覆核</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 當日年假/補休異動名單 -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2"><i data-lucide="refresh-cw"></i> 年假/補休異動名單</h3>
+                    <span class="text-[10px] font-bold text-slate-600 uppercase">共 3 筆</span>
+                </div>
+                <div class="table-fixed-height custom-scrollbar">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 sticky top-0">
+                            <tr>
+                                <th class="px-3 py-2 font-semibold text-slate-500">姓名/職稱</th>
+                                <th class="px-3 py-2 font-semibold text-slate-500">類別</th>
+                                <th class="px-3 py-2 font-semibold text-slate-500">時數</th>
+                                <th class="px-3 py-2 font-semibold text-slate-500 text-right">狀態</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr><td class="px-3 py-3 font-medium">劉玄德 <span class="block text-[10px] text-slate-400">秘書</span></td><td class="px-3 py-3 text-rose-600 font-bold">年假到期</td><td class="px-3 py-3">8.0h</td><td class="px-3 py-3 text-right"><span class="bg-rose-100 text-rose-700 px-1 py-0.5 rounded">未處理</span></td></tr>
+                            <tr><td class="px-3 py-3 font-medium">孫仲謀 <span class="block text-[10px] text-slate-400">組長</span></td><td class="px-3 py-3 text-emerald-600">補休發放</td><td class="px-3 py-3">16.0h</td><td class="px-3 py-3 text-right"><span class="bg-emerald-100 text-emerald-700 px-1 py-0.5 rounded">已發放</span></td></tr>
+                            <tr><td class="px-3 py-3 font-medium">司馬懿 <span class="block text-[10px] text-slate-400">組員</span></td><td class="px-3 py-3 text-emerald-600">年假發放</td><td class="px-3 py-3">56.0h</td><td class="px-3 py-3 text-right"><span class="bg-emerald-100 text-emerald-700 px-1 py-0.5 rounded">已發放</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </div>
 
-        {/* Table/List View */}
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-            <h2 className="text-lg font-semibold">今日動態名單 (示意)</h2>
-            <button className="text-blue-600 text-sm font-medium hover:underline">查看完整清單</button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 text-sm">
-                  <th className="px-6 py-4 font-medium">教職員姓名</th>
-                  <th className="px-6 py-4 font-medium">部門 / 職位</th>
-                  <th className="px-6 py-4 font-medium">變動類別</th>
-                  <th className="px-6 py-4 font-medium">說明</th>
-                  <th className="px-6 py-4 font-medium">狀態</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
-                <TableRow name="王大明" dept="教務處 / 組長" type="新進" note="人事室核定報到" status="已報到" statusColor="text-emerald-600 bg-emerald-50" />
-                <TableRow name="李小華" dept="數學科 / 老師" type="請假" note="病假 (1天)" status="核准" statusColor="text-amber-600 bg-amber-50" />
-                <TableRow name="張美麗" dept="總務處 / 職員" type="加班" note="校園修繕監工" status="進行中" statusColor="text-purple-600 bg-purple-50" />
-                <TableRow name="陳建國" dept="體育科 / 老師" type="離職" note="退休" status="手續中" statusColor="text-slate-500 bg-slate-100" />
-              </tbody>
-            </table>
-          </div>
+        <!-- 5. Bottom Grid (Left: New Hire, Right: Resign/LOA) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- 當日新進教職員名單 -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between">
+                    <h3 class="font-bold text-emerald-800 flex items-center gap-2"><i data-lucide="user-plus"></i> 當日新進教職員名單</h3>
+                    <span class="text-xs font-bold text-emerald-600">共 3 筆</span>
+                </div>
+                <div class="table-fixed-height custom-scrollbar">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 sticky top-0">
+                            <tr>
+                                <th class="px-4 py-3 font-semibold text-slate-500">姓名/職稱</th>
+                                <th class="px-4 py-3 font-semibold text-slate-500">班表時間</th>
+                                <th class="px-4 py-3 font-semibold text-slate-500">薪俸/保險設定</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr><td class="px-4 py-3 font-medium">趙子龍 <span class="block text-xs text-slate-400 font-normal">教官</span></td><td class="px-4 py-3">07:30-16:30</td><td class="px-4 py-3"><span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs">已設定 / 已設定</span></td></tr>
+                            <tr><td class="px-4 py-3 font-medium">關雲長 <span class="block text-xs text-slate-400 font-normal">實習教師</span></td><td class="px-4 py-3 text-rose-500 italic">未設定</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs">已設定 / 未設定</span></td></tr>
+                            <tr><td class="px-4 py-3 font-medium">張翼德 <span class="block text-xs text-slate-400 font-normal">校工</span></td><td class="px-4 py-3">08:00-17:00</td><td class="px-4 py-3"><span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs">已設定 / 已設定</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 當日離職/留職停薪名單 -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-rose-50 border-b border-rose-100 flex items-center justify-between">
+                    <h3 class="font-bold text-rose-800 flex items-center gap-2"><i data-lucide="user-minus"></i> 當日離職/留職停薪名單</h3>
+                    <span class="text-xs font-bold text-rose-600">共 2 筆</span>
+                </div>
+                <div class="table-fixed-height custom-scrollbar">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 sticky top-0">
+                            <tr>
+                                <th class="px-4 py-3 font-semibold text-slate-500">姓名/職稱</th>
+                                <th class="px-4 py-3 font-semibold text-slate-500">狀態與原因</th>
+                                <th class="px-4 py-3 font-semibold text-slate-500">薪俸/保險</th>
+                                <th class="px-4 py-3 font-semibold text-slate-500">年假結清</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr><td class="px-4 py-3 font-medium">曹孟德 <span class="block text-xs text-slate-400 font-normal">教務主任</span></td><td class="px-4 py-3 font-bold text-rose-600">留職停薪 (進修)</td><td class="px-4 py-3 text-xs">已結算/未退保</td><td class="px-4 py-3 text-rose-600 font-bold italic">未結清</td></tr>
+                            <tr><td class="px-4 py-3 font-medium">呂布 <span class="block text-xs text-slate-400 font-normal">老師</span></td><td class="px-4 py-3 font-bold text-rose-600">離職 (生涯規劃)</td><td class="px-4 py-3 text-xs">已結算/已退保</td><td class="px-4 py-3 text-emerald-600 font-bold">已結清</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </div>
-      </div>
+    </main>
 
-      {/* Footer Info */}
-      <footer className="mt-12 text-center text-slate-400 text-sm pb-8">
-        <p>© 2024 校園教職員人事管理系統 • 數據僅供內部管理參考</p>
-      </footer>
-    </div>
-  );
-};
+    <footer class="mt-12 text-center text-slate-400 text-[10px] pb-8 border-t pt-6">
+        <p>© 2024 校園教職員人事管理系統 • 本報表包含敏感人事資料，請妥善保管</p>
+    </footer>
 
-const StatCard = ({ title, value, icon, trend, color }) => (
-  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-2">
-    <div className={`w-10 h-10 ${color} rounded-xl flex items-center justify-center mb-1`}>
-      {icon}
-    </div>
-    <span className="text-slate-500 text-sm font-medium">{title}</span>
-    <div className="flex items-end gap-2">
-      <span className="text-2xl font-bold text-slate-800">{value}</span>
-      <span className="text-xs text-slate-400 mb-1">{trend}</span>
-    </div>
-  </div>
-);
+    <script>
+        // 初始化 Lucide 圖示
+        lucide.createIcons();
 
-const TableRow = ({ name, dept, type, note, status, statusColor }) => (
-  <tr className="hover:bg-slate-50 transition-colors">
-    <td className="px-6 py-4 font-medium text-slate-800">{name}</td>
-    <td className="px-6 py-4 text-slate-500">{dept}</td>
-    <td className="px-6 py-4">
-      <span className={`px-2 py-1 rounded text-xs font-semibold ${
-        type === '新進' ? 'text-emerald-700' : 
-        type === '請假' ? 'text-amber-700' : 
-        type === '加班' ? 'text-purple-700' : 'text-slate-700'
-      }`}>
-        {type}
-      </span>
-    </td>
-    <td className="px-6 py-4 text-slate-500">{note}</td>
-    <td className="px-6 py-4">
-      <span className={`px-2 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold ${statusColor}`}>
-        {status}
-      </span>
-    </td>
-  </tr>
-);
+        // 今日缺勤統計數據 (Doughnut Chart) - 移除正常出勤項目
+        const absenceData = [
+            { name: '事假', value: 2, color: '#6366f1' },
+            { name: '病假', value: 3, color: '#4f46e5' },
+            { name: '婚喪產假', value: 2, color: '#4338ca' },
+            { name: '公假', value: 1, color: '#3730a3' },
+            { name: '年假', value: 2, color: '#312e81' },
+            { name: '補休', value: 2, color: '#1e1b4b' },
+            { name: '忘打卡', value: 6, color: '#ef4444' },
+            { name: '遲到', value: 9, color: '#f59e0b' },
+            { name: '早退', value: 3, color: '#fbbf24' }
+        ];
 
-export default App;
+        const ctx = document.getElementById('absenceChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: absenceData.map(d => d.name),
+                datasets: [{
+                    data: absenceData.map(d => d.value),
+                    backgroundColor: absenceData.map(d => d.color),
+                    borderWidth: 0,
+                    hoverOffset: 20
+                }]
+            },
+            options: {
+                cutout: '60%',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        padding: 12,
+                        cornerRadius: 12,
+                        callbacks: {
+                            label: (context) => ` ${context.label}: ${context.raw} 人`
+                        }
+                    }
+                }
+            }
+        });
+
+        // 動態生成圖例標籤 (園餅圖下方)
+        const legendContainer = document.getElementById('chartLegend');
+        absenceData.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between p-2 bg-slate-50 border border-slate-100 rounded-lg shadow-sm';
+            div.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full" style="background-color: ${item.color}"></div>
+                    <span class="text-slate-600 text-[10px] font-medium leading-none">${item.name}</span>
+                </div>
+                <span class="text-sm font-bold text-slate-800">${item.value}</span>
+            `;
+            legendContainer.appendChild(div);
+        });
+    </script>
+</body>
+</html>
