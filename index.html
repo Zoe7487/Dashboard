@@ -1,631 +1,281 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>學校出缺席統計分析儀表板</title>
-    <!-- 引入 Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 React 核心庫 (18.x) -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- 引入 PropTypes (Recharts 依賴) -->
-    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
-    <!-- 引入 Recharts (2.x) -->
-    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
-    <!-- 引入 Babel 用於解析 JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- 引入 Lucide 圖標 -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        body {
-            background-color: #f8fafc;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        }
-        .recharts-default-tooltip {
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 8px !important;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1) !important;
-            padding: 8px !important;
-        }
-        /* 隱藏未處理的 JSX */
-        #root:empty {
-            display: none;
-        }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
+import React, { useState, useMemo } from 'react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
+} from 'recharts';
+import { 
+  Users, UserPlus, UserMinus, Clock, Calendar, 
+  ChevronRight, Download, Filter, TrendingUp, AlertCircle
+} from 'lucide-react';
 
-    <script type="text/babel">
-        // 從全域變數中安全取得組件
-        const { useState, useMemo, useEffect } = React;
-        const { 
-            BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
-            PieChart, Pie, Cell, LabelList, ComposedChart, Line, LineChart, Area 
-        } = window.Recharts;
+const App = () => {
+  // 模擬數據
+  const [data, setData] = useState({
+    totalStaff: 120,
+    newHires: 2,
+    resignations: 1,
+    onLeave: 8,
+    overtime: 5,
+    lastUpdate: "2024-05-20"
+  });
 
-        // --- 常數設定 (顏色規範) ---
-        const COLORS = {
-            attendance: '#059669', // 綠 (出席)
-            tardy: '#FBBF24',      // 黃 (遲到)
-            leave: '#EF4444',      // 紅 (請假)
-            absence: '#78350F',    // 咖啡色 (缺席)
-            unmarked: '#94A3B8',   // 灰藍 (未點)
-            in: '#F472B6',         // 粉紅色 (入班/新進)
-            out: '#4B5563',        // 深灰色 (離班/流失)
-            sick: '#EF4444',       
-            personal: '#3B82F6',   
-            official: '#8B5CF6',   
-            bereavement: '#10B981', 
-            absence_grey: '#94A3B8', 
-            rank_high: '#059669',  
-            rank_mid: '#FBBF24',   
-            rank_low: '#EF4444',   
-            loss: '#EF4444',       
-            stable: '#059669',     
-            growth: '#F97316'      
-        };
+  // 考勤類別分佈
+  const attendanceData = [
+    { name: '正常出勤', value: 104, color: '#10b981' },
+    { name: '請假中', value: 8, color: '#f59e0b' },
+    { name: '加班中', value: 5, color: '#8b5cf6' },
+    { name: '待報到/離職', value: 3, color: '#6b7280' },
+  ];
 
-        const KINDER_CLASSES = ['幼幼A', '幼幼B', '小A', '小B', '中A', '大A'];
-        const ELEMENTARY_CLASSES = ['一A', '二A', '三A', '四A', '五A', '六A'];
-        const WEEK_DAYS = ['週一', '週二', '週三', '週四', '週五'];
-        const MONTH_WEEKS = ['第一週', '第二週', '第三週', '第四週'];
-        const SEMESTER_MONTHS = ['9月', '10月', '11月', '12月', '1月'];
+  // 七日趨勢模擬
+  const trendData = [
+    { date: '05/14', 請假: 4, 加班: 2, 在職: 118 },
+    { date: '05/15', 請假: 6, 加班: 3, 在職: 118 },
+    { date: '05/16', 請假: 5, 加班: 8, 在職: 119 },
+    { date: '05/17', 請假: 10, 加班: 4, 在職: 119 },
+    { date: '05/18', 請假: 3, 加班: 2, 在職: 119 },
+    { date: '05/19', 請假: 2, 加班: 1, 在職: 120 },
+    { date: '05/20', 請假: 8, 加班: 5, 在職: 120 },
+  ];
 
-        // --- 數據生成器 ---
-        const generateClassData = (classes) => {
-            return classes.map(name => {
-                const total = 30 + Math.floor(Math.random() * 5); 
-                const unmarked = Math.floor(Math.random() * 5);   
-                const abs = Math.floor(Math.random() * 3);        
-                const tar = Math.floor(Math.random() * 4);        
-                const sick = Math.floor(Math.random() * 3) + 1;       
-                const personal = Math.floor(Math.random() * 2) + 1;   
-                const official = Math.floor(Math.random() * 2);      
-                const bereavement = Math.floor(Math.random() * 1);   
-                const totalLeave = sick + personal + official + bereavement;
-                const att = total - abs - totalLeave - unmarked;
-                const moveIn = Math.floor(Math.random() * 5) + 1;
-                const moveOut = Math.floor(Math.random() * 3);
-                const finalTotal = total + moveIn - moveOut;
-                const attRate = parseFloat(((att / total) * 100).toFixed(1));
+  // 請假類別細分
+  const leaveDetails = [
+    { type: '事假', count: 2 },
+    { type: '病假', count: 3 },
+    { type: '公假', count: 2 },
+    { type: '特休', count: 1 },
+  ];
 
-                return {
-                    name, total, 出席: att, 遲到: tar, 缺席: abs, 未點: unmarked,
-                    病假: sick, 事假: personal, 公假: official, 喪假: bereavement, 請假: totalLeave,
-                    入班: moveIn, 離班: moveOut, 
-                    moveRatio: parseFloat(((finalTotal / total) * 100).toFixed(1)),
-                    出席率: attRate,
-                    kpiScore: attRate - (abs * 2) - (tar * 0.5) 
-                };
-            });
-        };
+  const COLORS = ['#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
 
-        const generateTrendData = (labels) => {
-            return labels.map(label => ({
-                name: label,
-                出席率: parseFloat((88 + Math.random() * 11).toFixed(1)),
-                遲到: parseFloat((2 + Math.random() * 3).toFixed(1)),
-                請假: parseFloat((3 + Math.random() * 4).toFixed(1)),
-                缺席: parseFloat((1 + Math.random() * 2).toFixed(1)),
-                未點: parseFloat((0 + Math.random() * 2).toFixed(1)),
-            }));
-        };
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
+      {/* Header */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <Users className="text-blue-600" />
+            教職員人事與考勤每日統計
+          </h1>
+          <p className="text-slate-500">數據更新時間：{data.lastUpdate} 09:30 AM</p>
+        </div>
+        <div className="flex gap-2">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
+            <Filter size={18} />
+            篩選條件
+          </button>
+          <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+            <Download size={18} />
+            匯出報表
+          </button>
+        </div>
+      </header>
 
-        const kinderDaily = generateClassData(KINDER_CLASSES);
-        const elementaryDaily = generateClassData(ELEMENTARY_CLASSES);
-        const allDaily = [...kinderDaily, ...elementaryDaily];
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <StatCard 
+          title="在職總人數" 
+          value={data.totalStaff} 
+          icon={<Users className="text-blue-600" />} 
+          trend="+2 從上月"
+          color="bg-blue-50"
+        />
+        <StatCard 
+          title="當日新進" 
+          value={data.newHires} 
+          icon={<UserPlus className="text-emerald-600" />} 
+          trend="本月累計: 5"
+          color="bg-emerald-50"
+        />
+        <StatCard 
+          title="當日離職" 
+          value={data.resignations} 
+          icon={<UserMinus className="text-rose-600" />} 
+          trend="本月累計: 2"
+          color="bg-rose-50"
+        />
+        <StatCard 
+          title="當日請假" 
+          value={data.onLeave} 
+          icon={<Calendar className="text-amber-600" />} 
+          trend="缺勤率: 6.7%"
+          color="bg-amber-50"
+        />
+        <StatCard 
+          title="當日加班" 
+          value={data.overtime} 
+          icon={<Clock className="text-purple-600" />} 
+          trend="昨日: 3 人"
+          color="bg-purple-50"
+        />
+      </div>
 
-        const kinderWeekly = generateTrendData(WEEK_DAYS);
-        const elementaryWeekly = generateTrendData(WEEK_DAYS);
-        const monthlyTrend = generateTrendData(MONTH_WEEKS);
-        const semesterTrend = generateTrendData(SEMESTER_MONTHS);
-
-        const getSummaryData = (data) => {
-            const totalStudents = data.reduce((a, b) => a + b.total, 0);
-            const att = data.reduce((a, b) => a + b.出席, 0);
-            const tar = data.reduce((a, b) => a + b.遲到, 0);
-            const lea = data.reduce((a, b) => a + b.請假, 0);
-            const abs = data.reduce((a, b) => a + b.缺席, 0);
-            const unm = data.reduce((a, b) => a + b.未點, 0);
-            const moveIn = data.reduce((a, b) => a + b.入班, 0);
-            const moveOut = data.reduce((a, b) => a + b.離班, 0);
-
-            return {
-                totalStudents,
-                att: { count: att, ratio: ((att / totalStudents) * 100).toFixed(1) },
-                tar: { count: tar, ratio: ((tar / totalStudents) * 100).toFixed(1) },
-                lea: { count: lea, ratio: ((lea / totalStudents) * 100).toFixed(1) },
-                abs: { count: abs, ratio: ((abs / totalStudents) * 100).toFixed(1) },
-                unm: { count: unm, ratio: ((unm / totalStudents) * 100).toFixed(1) },
-                moveIn: { count: moveIn, ratio: ((moveIn / totalStudents) * 100).toFixed(1) },
-                moveOut: { count: moveOut, ratio: ((moveOut / totalStudents) * 100).toFixed(1) }
-            };
-        };
-
-        // --- 子組件 ---
-        const CustomTooltip = ({ active, payload, label }) => {
-            if (active && payload && payload.length) {
-                const data = payload[0].payload;
-                return (
-                    <div className="bg-white p-3 border border-slate-200 shadow-lg rounded-lg text-xs">
-                        <p className="font-bold mb-2 border-b pb-1 text-slate-700">{label}</p>
-                        {data.total && <p className="text-slate-500 mb-1 font-medium text-[10px]">總人數：{data.total} 人</p>}
-                        {payload.map((entry, index) => (
-                            <p key={`${entry.name}-${index}`} style={{ color: entry.fill || entry.color || '#333' }} className="flex justify-between gap-4">
-                                <span>{entry.name}:</span>
-                                <span className="font-bold">{entry.value}{entry.name.includes('率') || entry.name.includes('比例') ? '%' : '人'}</span>
-                            </p>
-                        ))}
-                    </div>
-                );
-            }
-            return null;
-        };
-
-        const KPICard = ({ title, count, ratio, iconName, color, isComparison }) => {
-            useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            }, [iconName]);
-
-            return (
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
-                    <div className="p-2 rounded-full mb-2" style={{ backgroundColor: `${color}15` }}>
-                        <i data-lucide={iconName} style={{ color: color, width: '18px', height: '18px' }}></i>
-                    </div>
-                    <p className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">{title}</p>
-                    <div className="mt-1 flex flex-col">
-                        <span className="text-base font-black leading-none" style={{ color: color }}>
-                            {count} {isComparison ? '' : <small className="text-[10px] font-normal">人</small>}
-                        </span>
-                        <span className="text-[10px] text-gray-400 font-medium mt-1">{isComparison ? '較前一週期' : '佔比'} {ratio}</span>
-                    </div>
-                </div>
-            );
-        };
-
-        const ChartBox = ({ title, children, className = "" }) => (
-            <div className={`bg-white p-5 rounded-2xl shadow-sm border border-gray-100 ${className}`}>
-                <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-sm">
-                    <div className="w-1.5 h-4 bg-blue-600 rounded-full"></div>
-                    {title}
-                </h4>
-                <div className="h-64">{children}</div>
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Main Attendance Chart */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold">近七日考勤趨勢</h2>
+            <div className="flex gap-4 text-sm text-slate-500">
+              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-amber-400 rounded-full"></span>請假</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-purple-500 rounded-full"></span>加班</span>
             </div>
-        );
+          </div>
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trendData}>
+                <defs>
+                  <linearGradient id="colorLeave" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorOver" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                />
+                <Area type="monotone" dataKey="請假" stroke="#f59e0b" fillOpacity={1} fill="url(#colorLeave)" strokeWidth={3} />
+                <Area type="monotone" dataKey="加班" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorOver)" strokeWidth={3} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
-        const CustomizedDot = (props) => {
-            const { cx, cy, value } = props;
-            if (!cx || !cy) return null;
-            if (parseFloat(value) < 90) {
-                return (
-                    <g key={`warning-dot-${cx}-${cy}`}>
-                        <circle cx={cx} cy={cy} r={5} fill={COLORS.leave} stroke="#fff" strokeWidth={2} />
-                        <rect x={cx - 15} y={cy - 25} width={30} height={16} rx={4} fill={COLORS.leave} />
-                        <text x={cx} y={cy - 14} textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold">{value}%</text>
-                    </g>
-                );
-            }
-            return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={4} fill={props.stroke} stroke="#fff" strokeWidth={2} />;
-        };
-
-        const App = () => {
-            const [activeTab, setActiveTab] = useState('daily');
-            const summary = useMemo(() => getSummaryData(allDaily), []);
-
-            useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            }, [activeTab]);
-
-            const sortedPerformanceWithLabels = useMemo(() => {
-                const sorted = [...allDaily].sort((a, b) => b.出席率 - a.出席率);
-                return sorted.map((item, index, arr) => ({
-                    ...item,
-                    displayLabel: index === 0 ? `🥇 ${item.出席率}%` : index === arr.length - 1 ? `⚠️ ${item.出席率}%` : `${item.出席率}%`
-                }));
-            }, []);
-
-            const sortedKPIWithLabels = useMemo(() => {
-                const sorted = [...allDaily].sort((a, b) => b.kpiScore - a.kpiScore);
-                return sorted.map(item => ({
-                    ...item,
-                    displayLabel: `${item.出席率}%`
-                }));
-            }, []);
-
-            const totalLeavePieData = [
-                { name: '病假', value: allDaily.reduce((acc, curr) => acc + curr.病假, 0), color: COLORS.sick },
-                { name: '事假', value: allDaily.reduce((acc, curr) => acc + curr.事假, 0), color: COLORS.personal },
-                { name: '公假', value: allDaily.reduce((acc, curr) => acc + curr.公假, 0), color: COLORS.official },
-                { name: '喪假', value: allDaily.reduce((acc, curr) => acc + curr.喪假, 0), color: COLORS.bereavement },
-                { name: '缺席', value: allDaily.reduce((acc, curr) => acc + curr.缺席, 0), color: COLORS.absence_grey },
-            ];
-
-            const schoolMoveRatio = parseFloat((( (summary.totalStudents + summary.moveIn.count - summary.moveOut.count) / summary.totalStudents) * 100).toFixed(1));
-
-            return (
-                <div className="min-h-screen p-4 md:p-6 font-sans text-slate-800">
-                    <header className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                            <h1 className="text-xl font-bold flex items-center gap-2 text-blue-700">
-                                <i data-lucide="users" style={{width: '24px', height: '24px'}}></i> 學校出缺席統計分析儀表板
-                            </h1>
-                            <p className="text-slate-500 text-xs mt-0.5 font-medium tracking-tight">
-                                當前視圖：{{daily: '當日即時監控', weekly: '當週短期績效', monthly: '當月趨勢分析', semester: '學期統整報告'}[activeTab]}
-                            </p>
-                        </div>
-                        
-                        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-                            {['daily', 'weekly', 'monthly', 'semester'].map(id => (
-                                <button
-                                    key={id}
-                                    onClick={() => setActiveTab(id)}
-                                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                                        activeTab === id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    {{daily: '當日監控', weekly: '當週績效', monthly: '當月分析', semester: '學期統整'}[id]}
-                                </button>
-                            ))}
-                        </div>
-                    </header>
-
-                    <main className="max-w-7xl mx-auto space-y-6">
-                        {/* --- KPI 指標卡 --- */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-                            <KPICard title={`${activeTab === 'semester' ? '平均出席率' : '今日出席'}`} count={activeTab === 'semester' ? summary.att.ratio + '%' : summary.att.count} ratio={activeTab === 'semester' ? '+0.4%' : summary.att.ratio + '%'} iconName="user-check" color={COLORS.attendance} isComparison={activeTab === 'semester'} />
-                            <KPICard title="今日遲到" count={summary.tar.count} ratio={summary.tar.ratio + '%'} iconName="clock" color={COLORS.tardy} />
-                            <KPICard title="今日請假" count={summary.lea.count} ratio={summary.lea.ratio + '%'} iconName="alert-circle" color={COLORS.leave} />
-                            <KPICard title={`${activeTab === 'semester' ? '缺席率' : '今日缺席'}`} count={activeTab === 'semester' ? summary.abs.ratio + '%' : summary.abs.count} ratio={activeTab === 'semester' ? '-0.2%' : summary.abs.ratio + '%'} iconName="user-x" color={COLORS.absence} isComparison={activeTab === 'semester'} />
-                            <KPICard title="尚未點名" count={summary.unm.count} ratio={summary.unm.ratio + '%'} iconName="help-circle" color={COLORS.unmarked} />
-                            <KPICard title="學生流失" count={summary.moveOut.count} ratio={summary.moveOut.ratio + '%'} iconName="user-minus" color={COLORS.out} />
-                            <KPICard title="新進學生" count={summary.moveIn.count} ratio={summary.moveIn.ratio + '%'} iconName="user-plus" color={COLORS.in} />
-                        </div>
-
-                        {/* --- 1. 當日監控 --- */}
-                        {activeTab === 'daily' && (
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <ChartBox title="幼兒部 班級出缺席統計">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={kinderDaily} margin={{ top: 20 }}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                                <XAxis dataKey="name" fontSize={11} axisLine={false} tickLine={false} />
-                                                <YAxis fontSize={12} axisLine={false} tickLine={false} />
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Legend iconType="circle" wrapperStyle={{fontSize: '11px'}} />
-                                                {['出席', '遲到', '請假', '缺席', '未點'].map(key => (
-                                                    <Bar key={key} dataKey={key} fill={key === '請假' ? COLORS.leave : COLORS[key === '未點' ? 'unmarked' : (key === '出席' ? 'attendance' : (key === '遲到' ? 'tardy' : 'absence'))]} radius={[2, 2, 0, 0]} barSize={10}>
-                                                        <LabelList dataKey={key} position="top" style={{ fontSize: '10px', fill: '#64748b' }} />
-                                                    </Bar>
-                                                ))}
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                    <ChartBox title="國小部 班級出缺席統計">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={elementaryDaily} margin={{ top: 20 }}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                                <XAxis dataKey="name" fontSize={11} axisLine={false} tickLine={false} />
-                                                <YAxis fontSize={12} axisLine={false} tickLine={false} />
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Legend iconType="circle" wrapperStyle={{fontSize: '11px'}} />
-                                                {['出席', '遲到', '請假', '缺席', '未點'].map(key => (
-                                                    <Bar key={key} dataKey={key} fill={key === '請假' ? COLORS.leave : COLORS[key === '未點' ? 'unmarked' : (key === '出席' ? 'attendance' : (key === '遲到' ? 'tardy' : 'absence'))]} radius={[2, 2, 0, 0]} barSize={10}>
-                                                        <LabelList dataKey={key} position="top" style={{ fontSize: '10px', fill: '#64748b' }} />
-                                                    </Bar>
-                                                ))}
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                </div>
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <ChartBox title="幼兒部 班級未出席分析 (各假別詳情)">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={kinderDaily} layout="vertical">
-                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
-                                                <XAxis type="number" hide />
-                                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} fontSize={11} width={60} />
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Legend iconType="rect" wrapperStyle={{fontSize: '11px'}} />
-                                                {[{k: '病假', c: COLORS.sick}, {k: '事假', c: COLORS.personal}, {k: '公假', c: COLORS.official}, {k: '喪假', c: COLORS.bereavement}, {k: '缺席', c: COLORS.absence_grey}].map(item => (
-                                                    <Bar key={item.k} dataKey={item.k} stackId="a" fill={item.c} barSize={20}>
-                                                        <LabelList dataKey={item.k} position="center" style={{ fontSize: '10px', fill: '#fff', fontWeight: 'bold' }} formatter={(v) => v > 0 ? v : ''} />
-                                                    </Bar>
-                                                ))}
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                    <ChartBox title="國小部 班級未出席分析 (各假別詳情)">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={elementaryDaily} layout="vertical">
-                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
-                                                <XAxis type="number" hide />
-                                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} fontSize={11} width={60} />
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Legend iconType="rect" wrapperStyle={{fontSize: '11px'}} />
-                                                {[{k: '病假', c: COLORS.sick}, {k: '事假', c: COLORS.personal}, {k: '公假', c: COLORS.official}, {k: '喪假', c: COLORS.bereavement}, {k: '缺席', c: COLORS.absence_grey}].map(item => (
-                                                    <Bar key={item.k} dataKey={item.k} stackId="a" fill={item.c} barSize={20}>
-                                                        <LabelList dataKey={item.k} position="center" style={{ fontSize: '10px', fill: '#fff', fontWeight: 'bold' }} formatter={(v) => v > 0 ? v : ''} />
-                                                    </Bar>
-                                                ))}
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                </div>
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <ChartBox title="幼兒部 班級人數異動與比例">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <ComposedChart data={kinderDaily}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                                <XAxis dataKey="name" fontSize={11} axisLine={false} tickLine={false} />
-                                                <YAxis fontSize={12} axisLine={false} tickLine={false} />
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Legend wrapperStyle={{fontSize: '11px'}} />
-                                                <Bar name="入班" dataKey="入班" fill={COLORS.in} radius={[2, 2, 0, 0]} barSize={15}><LabelList dataKey="入班" position="top" style={{fontSize: '10px'}} /></Bar>
-                                                <Bar name="離班" dataKey="離班" fill={COLORS.out} radius={[2, 2, 0, 0]} barSize={15}><LabelList dataKey="離班" position="top" style={{fontSize: '10px'}} /></Bar>
-                                                <Line type="monotone" dataKey="moveRatio" name="異動比例" stroke="#94A3B8" strokeDasharray="5 5" dot={({payload, cx, cy}) => {
-                                                    const color = payload.moveRatio < 100 ? COLORS.loss : payload.moveRatio > 100 ? COLORS.growth : COLORS.stable;
-                                                    return <circle key={`dot-daily-k-${cx}`} cx={cx} cy={cy} r={4} fill={color} stroke="none" />;
-                                                }}><LabelList dataKey="moveRatio" position="bottom" formatter={(v) => `${v}%`} style={{ fontSize: '10px', fontWeight: 'bold', fill: '#475569' }} /></Line>
-                                            </ComposedChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                    <ChartBox title="國小部 班級人數異動與比例">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <ComposedChart data={elementaryDaily}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                                <XAxis dataKey="name" fontSize={11} axisLine={false} tickLine={false} />
-                                                <YAxis fontSize={12} axisLine={false} tickLine={false} />
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Legend wrapperStyle={{fontSize: '11px'}} />
-                                                <Bar name="入班" dataKey="入班" fill={COLORS.in} radius={[2, 2, 0, 0]} barSize={15}><LabelList dataKey="入班" position="top" style={{fontSize: '10px'}} /></Bar>
-                                                <Bar name="離班" dataKey="離班" fill={COLORS.out} radius={[2, 2, 0, 0]} barSize={15}><LabelList dataKey="離班" position="top" style={{fontSize: '10px'}} /></Bar>
-                                                <Line type="monotone" dataKey="moveRatio" name="異動比例" stroke="#94A3B8" strokeDasharray="5 5" dot={({payload, cx, cy}) => {
-                                                    const color = payload.moveRatio < 100 ? COLORS.loss : payload.moveRatio > 100 ? COLORS.growth : COLORS.stable;
-                                                    return <circle key={`dot-daily-e-${cx}`} cx={cx} cy={cy} r={4} fill={color} stroke="none" />;
-                                                }}><LabelList dataKey="moveRatio" position="bottom" formatter={(v) => `${v}%`} style={{ fontSize: '10px', fontWeight: 'bold', fill: '#475569' }} /></Line>
-                                            </ComposedChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                </div>
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    <ChartBox title="全校 出缺席總計">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={[{ name: '全校總計', 出席: summary.att.count, 遲到: summary.tar.count, 請假: summary.lea.count, 缺席: summary.abs.count }]}>
-                                                <XAxis dataKey="name" hide /> <YAxis /> <Tooltip content={<CustomTooltip />} /> <Legend wrapperStyle={{fontSize: '10px'}} />
-                                                <Bar dataKey="出席" fill={COLORS.attendance} barSize={30} />
-                                                <Bar dataKey="遲到" fill={COLORS.tardy} barSize={30} />
-                                                <Bar dataKey="請假" fill={COLORS.leave} barSize={30} />
-                                                <Bar dataKey="缺席" fill={COLORS.absence} barSize={30} />
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                    <ChartBox title="全校 未出席原因佔比">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
-                                                <Pie data={totalLeavePieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="value" label={({ name, value }) => `${name}: ${value}人`}>
-                                                    {totalLeavePieData.map((entry, index) => <Cell key={`pie-cell-${index}`} fill={entry.color} />)}
-                                                </Pie>
-                                                <Tooltip /> <Legend verticalAlign="bottom" height={36} wrapperStyle={{fontSize: '10px'}}/>
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                    <ChartBox title={`全校 人數流動統計 (${schoolMoveRatio}%)`}>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={[{ name: '入班', value: summary.moveIn.count, fill: COLORS.in }, { name: '離班', value: summary.moveOut.count, fill: COLORS.out }]}>
-                                                <XAxis dataKey="name" /> <YAxis /> <Tooltip />
-                                                <Bar dataKey="value" name="人數" radius={[4, 4, 0, 0]} barSize={40}>
-                                                    {[{ fill: COLORS.in }, { fill: COLORS.out }].map((entry, i) => <Cell key={`flow-bar-${i}`} fill={entry.fill} />)}
-                                                    <LabelList dataKey="value" position="top" style={{fontSize: '12px', fontWeight: 'bold'}} />
-                                                </Bar>
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* --- 2. 當週績效 --- */}
-                        {activeTab === 'weekly' && (
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <ChartBox title="幼兒部 當週出席率趨勢">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={kinderWeekly} margin={{ top: 30, right: 30 }}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                                <XAxis dataKey="name" fontSize={11} />
-                                                <YAxis domain={[80, 100]} fontSize={11} tickFormatter={(v)=>`${v}%`} />
-                                                <Tooltip content={<CustomTooltip />} /> <Legend iconType="circle" />
-                                                <Line name="出席率" type="monotone" dataKey="出席率" stroke={COLORS.attendance} strokeWidth={3} dot={<CustomizedDot />} />
-                                                <Line name="遲到" type="monotone" dataKey="遲到" stroke={COLORS.tardy} strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                                                <Line name="請假" type="monotone" dataKey="請假" stroke={COLORS.leave} strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                    <ChartBox title="國小部 當週出席率趨勢">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={elementaryWeekly} margin={{ top: 30, right: 30 }}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                                <XAxis dataKey="name" fontSize={11} />
-                                                <YAxis domain={[80, 100]} fontSize={11} tickFormatter={(v)=>`${v}%`} />
-                                                <Tooltip content={<CustomTooltip />} /> <Legend iconType="circle" />
-                                                <Line name="出席率" type="monotone" dataKey="出席率" stroke={COLORS.attendance} strokeWidth={3} dot={<CustomizedDot />} />
-                                                <Line name="遲到" type="monotone" dataKey="遲到" stroke={COLORS.tardy} strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                                                <Line name="請假" type="monotone" dataKey="請假" stroke={COLORS.leave} strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                </div>
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <ChartBox title="班級本週績效排名 (出席率)">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={[...allDaily].sort((a,b)=>b.出席率-a.出席率)} layout="vertical" margin={{ right: 30 }}>
-                                                <XAxis type="number" domain={[85, 100]} hide />
-                                                <YAxis dataKey="name" type="category" fontSize={11} width={60} 
-                                                    tick={(props) => {
-                                                        const { x, y, payload } = props;
-                                                        const classObj = allDaily.find(d => d.name === payload.value);
-                                                        const isWarning = classObj && classObj.出席率 < 90;
-                                                        return (
-                                                            <g transform={`translate(${x},${y})`} key={`y-axis-tick-${payload.value}`}>
-                                                                {isWarning && <rect x={-65} y={-10} width={60} height={20} rx={4} fill={COLORS.leave} />}
-                                                                <text x={-5} y={4} textAnchor="end" fill={isWarning ? "#fff" : "#64748b"} fontSize="11" fontWeight="bold">{payload.value}</text>
-                                                            </g>
-                                                        );
-                                                    }} />
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Bar dataKey="出席率" radius={[0, 4, 4, 0]} barSize={15}>
-                                                    {[...allDaily].sort((a,b)=>b.出席率-a.出席率).map((entry, index) => <Cell key={`rank-bar-${index}`} fill={entry.出席率 < 90 ? COLORS.leave : COLORS.attendance} />)}
-                                                    <LabelList dataKey="出席率" position="right" formatter={(v)=>`${v}%`} style={{fontSize: '10px'}} />
-                                                </Bar>
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                    <ChartBox title="各班本週出缺席結構">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={allDaily}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                                <XAxis dataKey="name" fontSize={10} /> <YAxis /> <Tooltip content={<CustomTooltip />} /> <Legend />
-                                                <Bar dataKey="出席" stackId="a" fill={COLORS.attendance} />
-                                                <Bar dataKey="遲到" stackId="a" fill={COLORS.tardy} />
-                                                <Bar dataKey="請假" stackId="a" fill={COLORS.leave} />
-                                                <Bar dataKey="缺席" stackId="a" fill={COLORS.absence} />
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* --- 3. 當月分析 --- */}
-                        {activeTab === 'monthly' && (
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <ChartBox title="當月平均 班級比較">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={allDaily}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                                <XAxis dataKey="name" fontSize={11} /> <YAxis /> <Tooltip content={<CustomTooltip />} /> <Legend />
-                                                <Bar name="出席" dataKey="出席" fill={COLORS.attendance} barSize={10} />
-                                                <Bar name="遲到" dataKey="遲到" fill={COLORS.tardy} barSize={10} />
-                                                <Bar name="請假" dataKey="請假" fill={COLORS.leave} barSize={10} />
-                                                <Bar name="缺席" dataKey="缺席" fill={COLORS.absence} barSize={10} />
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                    <ChartBox title="當月出席趨勢 (週平均去雜訊)">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={monthlyTrend}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                                <XAxis dataKey="name" /> <YAxis domain={[85, 100]} /> <Tooltip content={<CustomTooltip />} /> <Legend />
-                                                <Line name="平均出席率" type="monotone" dataKey="出席率" stroke={COLORS.attendance} strokeWidth={4} dot={{ r: 6 }} />
-                                                <Line name="缺席率" type="monotone" dataKey="缺席" stroke={COLORS.absence} strokeWidth={2} strokeDasharray="5 5" />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                </div>
-                                <div className="grid grid-cols-1 gap-6">
-                                    <ChartBox title="假別結構分析 (100% 堆疊長條圖 - 各班 vs 全校平均)">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={allDaily} layout="vertical" margin={{ left: 30, right: 30 }}>
-                                                <XAxis type="number" hide />
-                                                <YAxis dataKey="name" type="category" fontSize={11} width={80} axisLine={false} tickLine={false} />
-                                                <Tooltip content={<CustomTooltip />} /> <Legend iconType="rect" />
-                                                <Bar name="病假" dataKey="病假" stackId="a" fill={COLORS.sick} barSize={25} />
-                                                <Bar name="事假" dataKey="事假" stackId="a" fill={COLORS.personal} />
-                                                <Bar name="公假" dataKey="公假" stackId="a" fill={COLORS.official} />
-                                                <Bar name="喪假" dataKey="喪假" stackId="a" fill={COLORS.bereavement} />
-                                                <Bar name="缺席" dataKey="缺席" stackId="a" fill={COLORS.absence_grey} />
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* --- 4. 學期統整 --- */}
-                        {activeTab === 'semester' && (
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <ChartBox title="各班學期出席績效排名 (Top/Bottom 標示)">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={sortedPerformanceWithLabels} margin={{ right: 40 }}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                                <XAxis dataKey="name" fontSize={11} /> <YAxis domain={[90, 100]} /> <Tooltip content={<CustomTooltip />} />
-                                                <Bar dataKey="出席率" radius={[4, 4, 0, 0]} barSize={30}>
-                                                    {sortedPerformanceWithLabels.map((entry, index, arr) => (
-                                                        <Cell key={`semester-perf-${index}`} fill={index === 0 ? COLORS.rank_high : index === arr.length - 1 ? COLORS.rank_low : '#3B82F6'} />
-                                                    ))}
-                                                    <LabelList dataKey="displayLabel" position="top" style={{fontSize: '10px', fontWeight: 'bold'}} />
-                                                </Bar>
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                    <ChartBox title="學期月度出席走勢 (趨勢分析)">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={semesterTrend} margin={{ top: 20, right: 30 }}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                                <XAxis dataKey="name" /> <YAxis domain={[90, 100]} /> <Tooltip />
-                                                <Line type="monotone" name="平均出席率" dataKey="出席率" stroke={COLORS.attendance} strokeWidth={4} dot={{ r: 6, fill: COLORS.attendance }} />
-                                                <Area type="monotone" dataKey="出席率" fill={COLORS.attendance} fillOpacity={0.05} />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                </div>
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <ChartBox title="學期 KPI 綜合評鑑排名 (條件色彩系統)">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={sortedKPIWithLabels} layout="vertical" margin={{ right: 30 }}>
-                                                <XAxis type="number" hide />
-                                                <YAxis dataKey="name" type="category" fontSize={11} width={60} />
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Bar dataKey="kpiScore" name="績效得分" barSize={15}>
-                                                    {sortedKPIWithLabels.map((entry, index) => {
-                                                        const color = entry.出席率 >= 96 ? COLORS.rank_high : entry.出席率 >= 93 ? COLORS.rank_mid : COLORS.rank_low;
-                                                        return <Cell key={`kpi-bar-${index}`} fill={color} />;
-                                                    })}
-                                                    <LabelList dataKey="displayLabel" position="right" style={{fontSize: '10px'}} />
-                                                </Bar>
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                    <ChartBox title="學期 人數異動與比例標註">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <ComposedChart data={allDaily}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                                <XAxis dataKey="name" fontSize={10} /> <YAxis /> <Tooltip content={<CustomTooltip />} /> <Legend />
-                                                <Bar name="入班總量" dataKey="入班" fill={COLORS.in} barSize={15} />
-                                                <Bar name="離班總量" dataKey="離班" fill={COLORS.out} barSize={15} />
-                                                <Line name="平均流動率" type="step" dataKey="moveRatio" stroke="#94A3B8" dot={false} />
-                                            </ComposedChart>
-                                        </ResponsiveContainer>
-                                    </ChartBox>
-                                </div>
-                            </div>
-                        )}
-                    </main>
-
-                    <footer className="max-w-7xl mx-auto mt-12 pb-8 border-t border-slate-200 pt-6 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-400 text-[9px]">
-                        <div className="flex flex-wrap justify-center gap-4">
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS.attendance}}></div> 出席</div>
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS.sick}}></div> 病假/請假(紅)</div>
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS.personal}}></div> 事假(藍)</div>
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS.official}}></div> 公假(紫)</div>
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS.bereavement}}></div> 喪假(綠)</div>
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS.absence}}></div> 缺席(咖)</div>
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS.unmarked}}></div> 未點(灰)</div>
-                        </div>
-                        <p>© 2024 智慧校園管理系統 - 出席與績效分析儀表板</p>
-                    </footer>
+        {/* Status Distribution */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <h2 className="text-lg font-semibold mb-6">今日狀態分佈</h2>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={attendanceData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {attendanceData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 space-y-3">
+            {attendanceData.map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{backgroundColor: item.color}}></div>
+                  <span className="text-slate-600">{item.name}</span>
                 </div>
-            );
-        };
+                <span className="font-semibold">{item.value} 人</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-        const container = document.getElementById('root');
-        const root = ReactDOM.createRoot(container);
-        root.render(<App />);
-    </script>
-</body>
-</html>
+        {/* Detailed Breakdown */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <h2 className="text-lg font-semibold mb-4">請假類別細項</h2>
+          <div className="space-y-4">
+            {leaveDetails.map((leave, i) => (
+              <div key={i}>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-slate-600">{leave.type}</span>
+                  <span className="font-medium">{leave.count} 人</span>
+                </div>
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-amber-400 h-full rounded-full" 
+                    style={{width: `${(leave.count / data.onLeave) * 100}%`}}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Table/List View */}
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+            <h2 className="text-lg font-semibold">今日動態名單 (示意)</h2>
+            <button className="text-blue-600 text-sm font-medium hover:underline">查看完整清單</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 text-sm">
+                  <th className="px-6 py-4 font-medium">教職員姓名</th>
+                  <th className="px-6 py-4 font-medium">部門 / 職位</th>
+                  <th className="px-6 py-4 font-medium">變動類別</th>
+                  <th className="px-6 py-4 font-medium">說明</th>
+                  <th className="px-6 py-4 font-medium">狀態</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm">
+                <TableRow name="王大明" dept="教務處 / 組長" type="新進" note="人事室核定報到" status="已報到" statusColor="text-emerald-600 bg-emerald-50" />
+                <TableRow name="李小華" dept="數學科 / 老師" type="請假" note="病假 (1天)" status="核准" statusColor="text-amber-600 bg-amber-50" />
+                <TableRow name="張美麗" dept="總務處 / 職員" type="加班" note="校園修繕監工" status="進行中" statusColor="text-purple-600 bg-purple-50" />
+                <TableRow name="陳建國" dept="體育科 / 老師" type="離職" note="退休" status="手續中" statusColor="text-slate-500 bg-slate-100" />
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer Info */}
+      <footer className="mt-12 text-center text-slate-400 text-sm pb-8">
+        <p>© 2024 校園教職員人事管理系統 • 數據僅供內部管理參考</p>
+      </footer>
+    </div>
+  );
+};
+
+const StatCard = ({ title, value, icon, trend, color }) => (
+  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-2">
+    <div className={`w-10 h-10 ${color} rounded-xl flex items-center justify-center mb-1`}>
+      {icon}
+    </div>
+    <span className="text-slate-500 text-sm font-medium">{title}</span>
+    <div className="flex items-end gap-2">
+      <span className="text-2xl font-bold text-slate-800">{value}</span>
+      <span className="text-xs text-slate-400 mb-1">{trend}</span>
+    </div>
+  </div>
+);
+
+const TableRow = ({ name, dept, type, note, status, statusColor }) => (
+  <tr className="hover:bg-slate-50 transition-colors">
+    <td className="px-6 py-4 font-medium text-slate-800">{name}</td>
+    <td className="px-6 py-4 text-slate-500">{dept}</td>
+    <td className="px-6 py-4">
+      <span className={`px-2 py-1 rounded text-xs font-semibold ${
+        type === '新進' ? 'text-emerald-700' : 
+        type === '請假' ? 'text-amber-700' : 
+        type === '加班' ? 'text-purple-700' : 'text-slate-700'
+      }`}>
+        {type}
+      </span>
+    </td>
+    <td className="px-6 py-4 text-slate-500">{note}</td>
+    <td className="px-6 py-4">
+      <span className={`px-2 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold ${statusColor}`}>
+        {status}
+      </span>
+    </td>
+  </tr>
+);
+
+export default App;
